@@ -6,9 +6,11 @@
 #include <cstddef>
 #include <thread>
 #include <mutex>
+#include <memory>
 #include <condition_variable>
 #include "aiws/processing_core.hpp"
 #include "aiws/workspace.hpp"
+#include "aiws/gui/build_worker.hpp"
 
 class QLabel;
 class QPushButton;
@@ -169,6 +171,7 @@ private:
     QTimer* build_timer_{nullptr}; //GUI timer used to check the worker completion
     bool fail_nxt_build_for_testing_{false}; //used to force the background build to fail for tests
     void handle_build_fail(const QString& reason);
+    void handle_build_result(BuildResult result);
     ExitCallback exit_callback_{nullptr};
 
     WorkspaceWidget* workspace_widget_{nullptr};
