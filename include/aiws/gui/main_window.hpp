@@ -4,6 +4,9 @@
 #include <cstddef>
 #include <future>
 #include <cstddef>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 #include "aiws/processing_core.hpp"
 #include "aiws/workspace.hpp"
 
