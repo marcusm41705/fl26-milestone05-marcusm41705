@@ -35,6 +35,7 @@ add_library(aiws_app STATIC
     src/term_inspector_widget.cpp
     src/search_result_model.cpp
     src/ipc_server.cpp #CR-1 IPC server adds
+    src/build_worker.cpp #Milestone 5 adds
     include/aiws/gui/main_window.hpp
     include/aiws/gui/resettable.hpp
     include/aiws/gui/workspace_widget.hpp
