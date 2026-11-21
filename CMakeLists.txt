@@ -44,6 +44,7 @@ add_library(aiws_app STATIC
     include/aiws/gui/term_inspector_widget.hpp
     include/aiws/gui/search_result_model.hpp
     include/aiws/gui/build_worker.hpp #Milestone 5 add
+    include/aiws/gui/build_control.hpp #Milestone 5 add
     #CR-1 IPC server adds
     include/aiws/ipc_server.hpp
 )
