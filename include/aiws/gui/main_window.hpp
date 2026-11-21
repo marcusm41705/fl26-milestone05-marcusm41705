@@ -136,7 +136,9 @@ private slots:
     /**
      * @brief Invokes the registered callback for the current background corpus build status
      */
-     void check_build_fin();
+     //void check_build_fin();
+
+     void shutdown_worker();
 protected:
     void closeEvent(QCloseEvent* event) override; //Used to handle attempts to close  application
 private:
@@ -158,7 +160,7 @@ private:
      */
     void clear_processing_outputs();
     //Used to determine that the user requested an exit during building
-    bool exit_pending_{false};
+    //bool exit_pending_{false};
 
     Workspace workspace_;
     ProcessingCore processing_core_;
@@ -166,12 +168,14 @@ private:
     int build_delay_ms_{0}; //Simulated build delay that can be configured
     std::size_t build_revision_{0}; //Used to record which workspace revision the worker is building
     std::size_t workspace_revision_{0}; //Used to track changes in workspace
+    std::unique_ptr<BuildWorker> build_worker_; //Owns the single background worker
+    std::size_t active_build_gen_{0}; //Used to identify the currently requested build
     bool build_in_progress_{false}; //Used to indicate whether a background build is active
-    std::future<ProcessingCore> build_future_; //used to hold the result of the background corpus build
-    QTimer* build_timer_{nullptr}; //GUI timer used to check the worker completion
+    //std::future<ProcessingCore> build_future_; //used to hold the result of the background corpus build
+    //QTimer* build_timer_{nullptr}; //GUI timer used to check the worker completion
     bool fail_nxt_build_for_testing_{false}; //used to force the background build to fail for tests
     void handle_build_fail(const QString& reason);
-    void handle_build_result(BuildResult result);
+    void handle_build_result(BuildResult result); //used to receive the completed corpus builds on the GUI thread
     ExitCallback exit_callback_{nullptr};
 
     WorkspaceWidget* workspace_widget_{nullptr};
