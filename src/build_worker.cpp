@@ -90,9 +90,18 @@ namespace aiws::gui {
         try{
             auto core = std::make_unique<ProcessingCore>();
             //providing the delay and cancellation settings for this build
-            const aiws::gui::BuildControl control{request->delay_ms, request->fail_4_testing, [this, id](){
+          const aiws::gui::BuildControl control{
+            request->delay_ms, request->fail_4_testing, [this, id](){
+                #ifndef AIWS_FAULT_NO_CANCEL
+                //Milestone M5 deliberate defect
+                //Used to ignore the invalidation of the running build
+                std::lock_guard<std::mutex> lock(mutex_);
+                return stopping_;
+                #else 
                 return !is_current(id);
-            }};
+                #endif
+            }
+          };
             //installing the controls on the worker thread
             aiws::gui::ScopedBuildControl scope(control);
             core->rebuild(request->snap); //The real build will now check the cancellation per doc

@@ -39,9 +39,13 @@ class StudentTests: public QObject{
         QVERIFY(window.add_document_file(first));
         QVERIFY(QMetaObject::invokeMethod(&window, "build_corpus", Qt::DirectConnection));
         QVERIFY(has_label_text(window, "Building corpus in background"));
-        QVERIFY(window.add_document_file(second)); //added to change the Workspace during the build
-        QTRY_VERIFY_WITH_TIMEOUT(has_label_text(window, "Outdated corpus discarded"), 5000);
+        QVERIFY(window.add_document_file(second)); //adding document invalidates requested build
+        QVERIFY(has_label_text(window, "Corpus: Not built"));
         QVERIFY(!has_label_text(window, "Corpus built successfully."));
+        window.set_build_delay_ms(0); //verifying that app permits another build
+        QVERIFY(QMetaObject::invokeMethod(&window, "build_corpus", Qt::DirectConnection));
+        QTRY_VERIFY_WITH_TIMEOUT(has_label_text(window, "Corpus built successfully."), 3000);
+       
 
     }
     void stale_corpus_after_reset(){
@@ -55,9 +59,13 @@ class StudentTests: public QObject{
       
         QVERIFY(QMetaObject::invokeMethod(&window, "build_corpus", Qt::DirectConnection));
         QVERIFY(QMetaObject::invokeMethod(&window, "reset_application", Qt::DirectConnection));
-        QTRY_VERIFY_WITH_TIMEOUT(has_label_text(window, "Outdated corpus discarded"), 5000);
+        QVERIFY(!has_label_text(window, "Application reset."));
         QVERIFY (!has_label_text(window, "Corpus built successfully."));
-    
+        //Verifying that app can build again post-reset
+        QVERIFY(window.add_document_file(first));
+        window.set_build_delay_ms(0);
+        QVERIFY(QMetaObject::invokeMethod(&window, "build_corpus", Qt::DirectConnection));
+        QTRY_VERIFY_WITH_TIMEOUT(has_label_text(window, "Corpus built successfully."), 3000);
     
     
     }
