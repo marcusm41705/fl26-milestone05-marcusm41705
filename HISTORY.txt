@@ -1,0 +1,208 @@
+git log --stat --date=iso
+commit 63de35930ec36c7f6544c87d
+e723cf502109cfd7 (HEA
+D -> main, 
+origin/main, orig
+in/HEAD)
+Author: Marcus Mason <marcusm41705@
+vt.edu>
+Date:   2026-11-22 17:56:41 +0000
+
+    Edits to Design.md
+
+ DESIGN.md | 5 ++++-
+ 1 file changed, 4 insertions(+), 1
+ deletion(-)
+
+commit 02c43c121f35612b609a76a8
+3de1d1abb88ffecb
+Author: Marcus Mason <marcusm41705@
+vt.edu>
+Date:   2026-11-22 17:35:43 +0000
+
+    Added video.md + additional com
+ments
+
+ VIDEO.md             |  2 +
+ src/build_worker.cpp | 81 ++++
+---
+ src/main_window.cpp  |  2 +
+-
+ 3 files changed, 50 insertions(+),
+ 35 deletions(-)
+
+commit f3fc1c058ba5d8b0ff54d7b5
+29047c318f155723
+Author: Marcus Mason <marcusm41705@
+vt.edu>
+Date:   2026-11-22 15:54:17 +0000
+
+    Added HISTORY.txt
+
+ HISTORY.txt | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+commit 30cd02d1012f180b38068493bf7b071302abde04
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-22 15:32:11 +0000
+
+    Finished DESIGN.md
+
+ DESIGN.md | 29 ++++++++++++++++--
+ 1 file changed, 26 insertions(+), 3 deletions(-)
+
+commit 3facdf2e3fae48cb39a6ad73e899bf3d27bee467
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-22 14:29:02 +0000
+
+    Completed fault switch integration into testing and worker files
+
+ .gitignore           |   2 +
+ CMakeLists.txt       |   1 +
+ DESIGN.md            |  13 +
+ .../build_worker.hpp |  10 +
+ src/build_worker.cpp |  41 +-
+ ...student_tests.cpp | 111 +++++-
+ 6 files changed, 167 insertions(+), 11 deletions(-)
+
+commit 2ac5f9c601904374f4f901d0b1b9825e33e5d5c5
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-22 12:50:04 +0000
+
+    Finished state integration, moving onto synch for deterministic tests
+
+ CMakeLists.txt        |  2 +-
+ src/build_worker.cpp  | 13 ++++-
+ .../student_tests.cpp | 16 ++++--
+ 3 files changed, 24 insertions(+), 7 deletions(-)
+
+commit 1ef8770c259ad6058edd5091f23e411a242d3425
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-22 00:02:24 -0500
+
+    State machine implementation finished.
+
+ .../main_window.hpp  |   6 +-
+ src/main_window.cpp  | 190 +++---
+ 2 files changed, 85 insertions(+), 111 deletions(-)
+
+commit 6292aa44db16fc941af96347b2811539afa01f9a
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-21 21:42:00 -0500
+
+    Adding state handling for Corpus (Had to implement without wifi)
+
+ .../build_control.hpp | 59 +++++
+ .../main_window.hpp   | 60 ++++++
+ src/build_worker.cpp  | 50 ++---
+ src/main_window.cpp   | 41 +++-
+ ...rocessing_core.cpp | 18 +-
+ 5 files changed, 187 insertions(+), 41 deletions(-)
+
+commit b6fec69a588ca98bd1f0f9d500c3be8501dcb5d4
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-21 08:00:48 +0000
+
+    Added build_control.hpp
+
+ CMakeLists.txt              | 1 +
+ .../gui/build_control.hpp   | 0
+ 2 files changed, 1 insertion(+)
+
+commit 9c258c42ce2343654830d6e87843f6aec11c5757
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-21 07:47:13 +0000
+
+    Implemented R1 and R2 elements into main_window.hpp
+
+ .../main_window.hpp  |  14 +-
+ src/main_window.cpp  | 180 ++----
+ 2 files changed, 71 insertions(+), 123 deletions(-)
+
+commit deacaf9aa84d276cba826afbf0c04bd6a0716465
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-20 01:52:23 -0500
+
+    R1 and R2 implemented, moving onto R3
+
+ .../gui/main_window.hpp   | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 773ac1282edb8f56b009fe3d032bff00ecedbf50
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-20 06:30:13 +0000
+
+    Started and added build_worker source file
+
+ CMakeLists.txt       |   1 +
+ .../build_worker.hpp |  40 +-
+ src/build_worker.cpp | 137 ++++++
+ 3 files changed, 165 insertions(+), 13 deletions(-)
+
+commit 97e6b61349ee7153f6316b2a2d20a15512d2f501
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-20 03:33:44 +0000
+
+    Updated build_worker.hpp
+
+ CMakeLists.txt        |  7 +-
+ .../build_worker.hpp  | 40 ++++++
+ .../main_window.hpp   |  3 +
+ 3 files changed, 47 insertions(+), 3 deletions(-)
+
+commit 720070ad513e45b0086d11b376b09b922d017275
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-19 21:34:32 -0500
+
+    Update .gitignore
+
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 7c841e9fce490c2035a4fa89e430a8f54ab33b09
+Author: Marcus Mason <marcusm41705@vt.edu>
+Date:   2026-11-19 21:28:11 -0500
+
+    Added files from Milestone 4
+
+ .gitignore           |   8 +
+ CMakeLists.txt       |  63 +
+ .../aiws/chunker.hpp |  25 +
+ ...king_strategy.hpp |  18 +
+ ...ntext_builder.hpp |  13 +
+ ...text_strategy.hpp |  17 +
+ .../corpus_index.hpp |  36 +
+ .../document.hpp     |  22 +
+ ...ontext_widget.hpp |  75 +
+ .../main_window.hpp  | 181 ++
+ .../resettable.hpp   |  22 +
+ ..._result_model.hpp |  84 +
+ ...search_widget.hpp | 105 ++
+ ...pector_widget.hpp |  81 +
+ ...kspace_widget.hpp | 101 ++
+ .../ipc_server.hpp   |  26 +
+ ...ocessing_core.hpp |  53 +
+ ...cessing_types.hpp |  38 +
+ ...rieval_engine.hpp |  18 +
+ ...eval_strategy.hpp |  20 +
+ ...ext_processor.hpp |  29 +
+ .../workspace.hpp    |  19 +
+ src/chunker.cpp      |  59 +
+ ...ntext_builder.cpp |  29 +
+ ...ontext_widget.cpp | 118 ++
+ src/corpus_index.cpp |  72 +
+ src/document.cpp     |  14 +
+ src/ipc_server.cpp   | 255 +++
+ src/main.cpp         |  82 +
+ src/main_window.cpp  | 465 ++++++
+ ...ocessing_core.cpp | 104 ++
+ ...rieval_engine.cpp |  86 +
+ ..._result_model.cpp |  97 ++
+ ...search_widget.cpp | 165 ++
+ ...pector_widget.cpp | 100 ++
+ ...ext_processor.cpp | 116 ++
+ src/workspace.cpp    |  17 +
+ ...kspace_widget.cpp |  98 ++
+ ...student_tests.cpp |  80 +
+ tools/aiws_send.cpp  | 289 ++++
+ 40 files changed, 3300 insertions(+)
