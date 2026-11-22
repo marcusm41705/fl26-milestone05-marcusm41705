@@ -5,7 +5,7 @@
 #include "aiws/corpus_index.hpp"
 #include "aiws/retrieval_engine.hpp"
 #include "aiws/text_processor.hpp"
-
+#include "aiws/gui/build_control.hpp"
 #include <stdexcept>
 #include <unordered_set>
 #include <utility>
@@ -55,18 +55,22 @@ void ProcessingCore::rebuild(const Workspace& workspace) {
     std::unordered_set<std::string> document_ids;
     std::vector<Chunk> next_chunks; 
     //builds the replacement state first so that failed rebuilds leave the previous valid corpus the same
-    for (std::size_t order = 0; order < workspace.documents().size(); ++order) {
+    for(std::size_t order = 0; order < workspace.documents().size(); ++order){
+        //Milestone 5: delay / check cancellation before each of the documents
+        gui::before_document();
         const auto& doc = workspace.documents()[order];
-        if (!document_ids.insert(doc.id()).second) {
+        if(!document_ids.insert(doc.id()).second){
             throw std::invalid_argument("duplicate document id: " + doc.id());
         }
-        //dispatch through configured chunk strategy
+        //Processes current doc
         auto produced = impl_->chunking->chunk(doc, order);
-        next_chunks.insert(next_chunks.end(),
-                           std::make_move_iterator(produced.begin()),
-                           std::make_move_iterator(produced.end()));
+        //Milestone 5: checking cancellation after processing the doc
+        gui::check_cancelled(); 
+        next_chunks.insert(next_chunks.end(), std::make_move_iterator(produced.begin()), std::make_move_iterator(produced.end()));
     }
+    gui::check_cancelled(); //don't construct an index for cancelled build
     CorpusIndex next_index(next_chunks);
+    gui::check_cancelled();
     impl_->chunks = std::move(next_chunks);
     impl_->index = std::move(next_index);
 }

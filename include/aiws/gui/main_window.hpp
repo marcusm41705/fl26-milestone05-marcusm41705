@@ -161,6 +161,66 @@ private:
     void clear_processing_outputs();
     //Used to determine that the user requested an exit during building
     //bool exit_pending_{false};
+    class CorpusState{
+        public:
+        virtual ~CorpusState() = default;
+        //Events that affect corpus lifecycle
+        virtual void build_requested(MainWindow& window);
+        virtual void workspace_changed(MainWindow& window);
+        virtual void reset(MainWindow& window);
+        virtual void exit_requested(MainWindow& window);
+        virtual void build_finished(MainWindow&, BuildResult){}
+        //Capabilities of current state
+        virtual bool can_build() const noexcept{
+            return true;
+        }
+        virtual bool has_current_corpus() const noexcept{
+            return false;
+        }
+        virtual bool can_edit_workspace() const noexcept{
+            return true;
+        }
+    };
+    class NoCorpusState final: public CorpusState{};
+    class BuildingState final: public CorpusState{
+        public: 
+        void build_requested(MainWindow& ) override{}
+        void build_finished(MainWindow& window, BuildResult result) override;
+        bool can_build() const noexcept override{
+            return false;
+        }
+        
+    };
+    class ReadyState final: public CorpusState {
+        public: 
+        bool has_current_corpus() const noexcept override{
+            return true;
+        }
+    };
+    class FailedState final: public CorpusState {};
+    class ClosingState final: public CorpusState{
+        public:
+        void build_requested(MainWindow&) override{}
+        void workspace_changed(MainWindow&) override {}
+        void reset(MainWindow&) override {}
+        void exit_requested(MainWindow&) override{}
+        bool can_build() const noexcept override{
+            return false;
+        }
+        bool can_edit_workspace() const noexcept override{
+            return false;
+        }
+    };
+    //MainWindow owns all five state objects
+    NoCorpusState no_corpus_state_;
+    BuildingState building_state_;
+    ReadyState ready_state_;
+    FailedState failed_state_;
+    ClosingState closing_state_;
+    //Used as a non-owning pointer to currently active state
+    CorpusState* state_{
+        &no_corpus_state_
+    };
 
     Workspace workspace_;
     ProcessingCore processing_core_;

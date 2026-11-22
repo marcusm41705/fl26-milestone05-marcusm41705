@@ -378,12 +378,10 @@ void MainWindow::clear_processing_outputs() {
 }
 
 void MainWindow::closeEvent(QCloseEvent* event){
-    //if a build is still running, postpone the closing until the worker is done
-    // This prevents the destruction of objects that are still involved in the background processing
-    if(build_worker_){ //While worker running, stop shutdown
-       build_worker_->stop();
-    }
+    //Used to stop the worker before exiting the application
+    shutdown_worker();
     QMainWindow::closeEvent(event);
+
 }
 void MainWindow::set_fail_nxt_build_for_testing(bool enabled){
     fail_nxt_build_for_testing_ = enabled;
@@ -405,5 +403,38 @@ void MainWindow::shutdown_worker(){
     if(build_worker_){
         build_worker_->stop();
     }
+}
+void MainWindow::CorpusState::build_requested(MainWindow& window){
+    if(window.workspace_.documents().empty()){
+        return;
+    }
+    try{
+        BuildRequest request{window.workspace_, window.workspace_revision_, window.build_delay_ms_, window.fail_nxt_build_for_testing_};
+        window.active_build_gen_ = window.build_worker_->submit(std::move(request));
+        window.fail_nxt_build_for_testing_ = false;
+    } catch (const std::exception& error){
+        window.state_ = &window.failed_state_;
+        window.clear_processing_outputs();
+        window.workspace_widget_->set_corpus_status("Corpus: Failed");
+        window.status_label_->setText(QString("Unable to start build: %1").arg(error.what()));
+        window.update_action_states();
+        return;
+    }
+    //transition to BuildingState
+    window.state_ = &window.building_state_;
+    window.clear_processing_outputs();
+    window.workspace_widget_->set_corpus_status("Corpus: Building...");
+    window.status_label_->setText("Building corpus in background...");
+    window.update_action_states();
+}
+void MainWindow::CorpusState::workspace_changed(MainWindow& window){
+    //cancelling work assoc. w/ previous Workspace
+    window.build_worker_->cancel();
+    window.state_ = &window.no_corpus_state_;  //transitioning to NoCorpusState
+    window.invalidate_corpus();
+}
+void MainWindow::CorpusState::reset(MainWindow& window){
+    window.build_worker_->cancel();
+    window.workspace_clear();
 }
 }  // namespace aiws::gui

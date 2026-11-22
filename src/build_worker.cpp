@@ -1,4 +1,5 @@
 #include "aiws/gui/build_worker.hpp"
+#include "aiws/gui/build_control.hpp"
 #include <QMetaObject>
 #include <QObject>
 #include <chrono>
@@ -51,15 +52,19 @@ namespace aiws::gui {
   }
   void BuildWorker::stop(){
     {
-        std::lock_guard<std::mutex> lock(mutex_);
-        stopping_ = true;
-        ++gen_;
-        pending_request_.reset();
-    }
-    cond_var_.notify_one(); //wake worker even when no build currently running
-    if(worker_.joinable()){
+    std::lock_guard<std::mutex> lock(mutex_);
+    stopping_ = true;
+    ++gen_;
+    pending_request_.reset();
+     }
+     #ifndef AIWS_FAULT_SILENT_SHUTDOWN
+     // wakes the idle worker normally so it can exit
+     //Worker is awoken even if waiting for work
+     cond_var_.notify_one();
+     #endif
+     if(worker_.joinable()){ //joining the worker before destruction
         worker_.join();
-    }
+     }
   }
   void BuildWorker::worker_loop(){
     while(true){
@@ -84,31 +89,18 @@ namespace aiws::gui {
         result.gen = id;
         try{
             auto core = std::make_unique<ProcessingCore>();
-            //checking cancellation between doc delays
-            for(const auto& document : request->snap.documents()){
-                (void) document;
-                if(!is_current(id)){
-                    break;
-                }
-                if(request->delay_ms > 0){
-                    std::this_thread::sleep_for(std::chrono::milliseconds(request->delay_ms));
-
-                }
-                if(!is_current(id)){
-                    break;
-                }
-                if(request->fail_4_testing){
-                    throw std::runtime_error("Injected corpus build failure");
-                }
-            }
-            if(!is_current(id)){
-                continue;
-            }
-            core->rebuild(request->snap);
+            //providing the delay and cancellation settings for this build
+            const aiws::gui::BuildControl control{request->delay_ms, request->fail_4_testing, [this, id](){
+                return !is_current(id);
+            }};
+            //installing the controls on the worker thread
+            aiws::gui::ScopedBuildControl scope(control);
+            core->rebuild(request->snap); //The real build will now check the cancellation per doc
             if(!is_current(id)){
                 continue;
             }
             result.core = std::move(core);
+
         } catch(const std::exception& error){
             result.error = error.what();
         } catch(...){
