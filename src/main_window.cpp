@@ -121,6 +121,9 @@ bool MainWindow::add_document_file(const QString& path){
     if(path.isEmpty()){
         return false;
     }
+    if(!state_->can_edit_workspace()){
+        return false;
+    }
     //Retrieve the absolute file path and filename
     QFileInfo file_info(path);
     QString document_id = file_info.absoluteFilePath();
@@ -142,17 +145,17 @@ bool MainWindow::add_document_file(const QString& path){
         workspace_.add_document(document);
         ++workspace_revision_;
         //Workspace change to invalidate the running build
-        build_worker_->cancel();
-        build_in_progress_ = false;
+        //build_worker_->cancel();
+        //build_in_progress_ = false;
     } catch (const std::exception& error){
         return false;
     }
-    //Add title to Gui
-    workspace_widget_->add_document(document_title);
-    //Workspace changed
-    invalidate_corpus();
-    status_label_->setText(QString("Document added: %1").arg(document_title));
-    return true;
+ state_->workspace_changed(*this); //notify current state of the workspace change
+ //add document to GUI
+ workspace_widget_->add_document(document_title);
+ update_action_states();
+ status_label_->setText(QString("Document added: %1").arg(document_title));
+ return true;
 }
 void MainWindow::set_build_delay_ms(int ms_per_document){
     build_delay_ms_ = (ms_per_document >= 0) ? ms_per_document : 0;
@@ -160,64 +163,12 @@ void MainWindow::set_build_delay_ms(int ms_per_document){
 
 
 void MainWindow::build_corpus() { //Rebuilt for Milestone 5
-   if(build_in_progress_){ 
-    return;
-   }
-   if(workspace_.documents().empty()){
-    return;
-   }
-   try{
-    //Creating snapshot of current workspace
-    BuildRequest request{ workspace_, workspace_revision_, fail_nxt_build_for_testing_, build_delay_ms_};
-    active_build_gen_= build_worker_->submit(std::move(request)); //submit request without waiting for completion
-    fail_nxt_build_for_testing_ = false;
-   } catch (const std::exception& error){
-    corpus_current_ = false;
-    workspace_widget_->set_corpus_status("Corpus: Failed");
-    status_label_->setText(QString("Unable to start build: %1").arg(error.what()));
-    update_action_states();
-    return;
-   }
-   build_in_progress_ = true; //marking build as requested
-   invalidate_corpus(); //the previous corpus is no longer current
-   workspace_widget_->set_corpus_status("Corpus: Building...");
-   status_label_->setText("Building corpus in background...");
-   update_action_states();
+   state_->build_requested(*this);
 
 }
 
 void MainWindow::handle_build_result(BuildResult result){
-    //Ignoring completions from canceled / replaced builds
-    if(!build_in_progress_ || result.gen != active_build_gen_){
-        return;
-    }
-    #ifndef AIWS_FAULT_ACCEPT_STALE
-    //Don't accept corpus for an outdated Workspace
-    if(result.revision != workspace_revision_){
-        build_in_progress_ = false;
-        invalidate_corpus();
-        status_label_->setText("Workspace changed. Outdated corpus discarded.");
-        return;
-    }
-    #endif
-    build_in_progress_ = false;
-    //reporting failed build on GUI thread
-    if(!result.error.empty()){
-        handle_build_fail(QString::fromStdString(result.error));
-        return;
-    }
-    if(!result.core){
-        handle_build_fail("Build returned no corpus.");
-        return;
-    }
-    //accepting completed corpus by transferring the ownership
-    processing_core_ = std::move(*result.core);
-    corpus_current_ = true;
-    clear_processing_outputs();
-    QString chunk_status =QString("Corpus: %1 chunks").arg(static_cast<qulonglong>(processing_core_.chunk_count()));
-    workspace_widget_->set_corpus_status(chunk_status);
-    status_label_->setText("Corpus built successfully.");
-    update_action_states();
+   state_->build_finished(*this, std::move(result));
 }
 
 void MainWindow::document_selected(int row) {
@@ -238,7 +189,7 @@ void MainWindow::document_selected(int row) {
 
 void MainWindow::search_requested(const QString& query, int k) {
     //to ensure current corpus and valid query
-    if(!corpus_current_ || query.trimmed().isEmpty()){ 
+    if(!state_->has_current_corpus()  || query.trimmed().isEmpty()){ 
         return;
     }
     //Converting QString to string
@@ -260,7 +211,7 @@ void MainWindow::query_changed(const QString& query) {
 
 void MainWindow::build_context_requested(int token_budget) {
    //ensuring the corpus is current + query is valid
-   if(!corpus_current_ || !search_widget_->has_query()){
+   if(!state_->has_current_corpus() || !search_widget_->has_query()){
     return;
    }
    //Retrieve the current search widget settings
@@ -290,7 +241,7 @@ void MainWindow::source_document_requested(const QString& document_id) {
 
 void MainWindow::term_inspection_requested(const QString& term,
                                            const QString& chunk_id) {
-    if(!corpus_current_ || term.trimmed().isEmpty()){ //ensuring a valid corpus
+    if(!state_->has_current_corpus() || term.trimmed().isEmpty()){ //ensuring a valid corpus
         return;
     }
     //converting  the QString to string
@@ -313,23 +264,7 @@ void MainWindow::term_inspection_requested(const QString& term,
 }
 
 void MainWindow::reset_application() {
-    //Resetting all major GUI components inside the interface
-    //cancelling any pending/running corpus build
-    build_worker_->cancel();
-    build_in_progress_ = false;
-    //clearing backend workspace
-    workspace_.clear();
-    ++workspace_revision_;
-    //Marking the existing corpus as invalid 
-    corpus_current_ = false;
-    //Reset the gui components (polymorphically)
-    Resettable* components[] = {workspace_widget_, search_widget_, term_inspector_widget_, context_widget_};
-    for (Resettable* comp : components){
-        comp->reset();
-    }
-    status_label_->setText("Application reset."); //Restore the required app status
-    update_action_states(); //restore the appropriate button availability
-
+   state_->reset(*this);
 }
 
 void MainWindow::exit_application() {
@@ -341,12 +276,13 @@ void MainWindow::exit_application() {
 void MainWindow::update_action_states() {
     //The build corpus needs at least one doc
     bool docs_have = !workspace_.documents().empty();
-    workspace_widget_->set_build_corpus_enabled(docs_have && !build_in_progress_);
+    workspace_widget_->set_build_corpus_enabled(docs_have && state_->can_build());
+    bool corpus_avail = state_->has_current_corpus();
     //Search needs current corpus and valid query
-    bool search_avail = (corpus_current_ && search_widget_->has_query());
+    bool search_avail = (corpus_avail && search_widget_->has_query());
     search_widget_->set_search_enabled(search_avail);
     context_widget_->set_build_context_enabled(search_avail);
-    term_inspector_widget_->set_inspection_enabled(corpus_current_); //INspect needs current corpus
+    term_inspector_widget_->set_inspection_enabled(corpus_avail); //INspect needs current corpus
     
 
 }
@@ -354,13 +290,7 @@ void MainWindow::update_action_states() {
 void MainWindow::invalidate_corpus() {
     //Invalidates the existing corpus whenever the workspace changes as previous 
     //results and stats might no longer match the current doc.
-    corpus_current_ = false;
-    if(build_in_progress_){
-        workspace_widget_->set_corpus_status("Corpus: Building...");
-    } else {
-        workspace_widget_->set_corpus_status("Corpus: Not built");
-    }
-    
+   workspace_widget_->set_corpus_status("Corpus: Not built");
     clear_processing_outputs();
     update_action_states();
 }
@@ -387,29 +317,20 @@ void MainWindow::set_fail_nxt_build_for_testing(bool enabled){
     fail_nxt_build_for_testing_ = enabled;
 }
 void MainWindow::handle_build_fail(const QString& reason){
-   #ifdef AIWS_FAULT_LOSE_FAILURE
-   //Deliberate fault from Milestone 4, so lose the failure notification
-   (void)reason;
-   return;
-   #else
-   build_in_progress_ = false;
-   corpus_current_ = false;
-   workspace_widget_->set_corpus_status("Corpus: Failed");
-   status_label_->setText(QString("Corpus build failed: %1").arg(reason));
-   update_action_states();
-   #endif
+  clear_processing_outputs();
+  workspace_widget_->set_corpus_status("Corpus: Failed");
+  status_label_->setText(QString("Corpus build failed: %1").arg(reason));
+  update_action_states();
 }
 void MainWindow::shutdown_worker(){
-    if(build_worker_){
-        build_worker_->stop();
-    }
+   state_->exit_requested(*this);
 }
 void MainWindow::CorpusState::build_requested(MainWindow& window){
     if(window.workspace_.documents().empty()){
         return;
     }
     try{
-        BuildRequest request{window.workspace_, window.workspace_revision_, window.build_delay_ms_, window.fail_nxt_build_for_testing_};
+        BuildRequest request{window.workspace_, window.workspace_revision_, window.fail_nxt_build_for_testing_, window.build_delay_ms_ };
         window.active_build_gen_ = window.build_worker_->submit(std::move(request));
         window.fail_nxt_build_for_testing_ = false;
     } catch (const std::exception& error){
@@ -435,6 +356,59 @@ void MainWindow::CorpusState::workspace_changed(MainWindow& window){
 }
 void MainWindow::CorpusState::reset(MainWindow& window){
     window.build_worker_->cancel();
-    window.workspace_clear();
+    window.workspace_.clear();
+    ++window.workspace_revision_;
+    //Returning to initial state
+    window.state_ = &window.no_corpus_state_;
+    Resettable* components[] = {window.workspace_widget_, window.search_widget_, window.term_inspector_widget_, window.context_widget_};
+    for (Resettable* comp : components){
+        comp->reset();
+    
+    }
+    window.status_label_->setText("Application reset.");
+    window.update_action_states();
+}
+void MainWindow::CorpusState::exit_requested(MainWindow& window){
+    window.state_ = &window.closing_state_;
+    if(window.build_worker_){
+        window.build_worker_->stop();
+    }
+}
+void MainWindow::BuildingState::build_finished(MainWindow& window, BuildResult result){
+    //Ignoring results from canceled / replaced requests
+    if(result.gen != window.active_build_gen_){
+        return;
+    }
+    #ifndef AIWS_FAULT_ACCEPT_STALE
+    if(result.revision != window.workspace_revision_){
+        window.state_ = &window.no_corpus_state_;
+        window.invalidate_corpus();
+        window.status_label_->setText("Workspace changed. Outdated corpus discarded.");
+        return;
+    }
+    #endif
+    //handling failed build
+    if(!result.error.empty() || !result.core){
+        #ifdef AIWS_FAULT_LOSE_FAILURE
+        return;
+        #else
+        window.state_ = &window.failed_state_;
+        if(!result.error.empty()){
+            window.handle_build_fail(QString::fromStdString(result.error));
+        } else {
+            window.handle_build_fail("Build returned no corpus.");
+        }
+        return;
+        #endif
+    }
+    //accepting the valid corpus by transferring the ownership
+    window.processing_core_ = std::move(*result.core);
+    //transitioning to ReadyState
+    window.state_ = &window.ready_state_;
+    window.clear_processing_outputs();
+    QString chunk_status = QString("Corpus: %1 chunks").arg(static_cast<qulonglong>(window.processing_core_.chunk_count()));
+    window.workspace_widget_->set_corpus_status(chunk_status);
+    window.status_label_->setText("Corpus built successfully.");
+    window.update_action_states();
 }
 }  // namespace aiws::gui

@@ -224,13 +224,13 @@ private:
 
     Workspace workspace_;
     ProcessingCore processing_core_;
-    bool corpus_current_{false};
+   // bool corpus_current_{false};
     int build_delay_ms_{0}; //Simulated build delay that can be configured
-    std::size_t build_revision_{0}; //Used to record which workspace revision the worker is building
+    //std::size_t build_revision_{0}; //Used to record which workspace revision the worker is building
     std::size_t workspace_revision_{0}; //Used to track changes in workspace
     std::unique_ptr<BuildWorker> build_worker_; //Owns the single background worker
     std::size_t active_build_gen_{0}; //Used to identify the currently requested build
-    bool build_in_progress_{false}; //Used to indicate whether a background build is active
+   // bool build_in_progress_{false}; //Used to indicate whether a background build is active
     //std::future<ProcessingCore> build_future_; //used to hold the result of the background corpus build
     //QTimer* build_timer_{nullptr}; //GUI timer used to check the worker completion
     bool fail_nxt_build_for_testing_{false}; //used to force the background build to fail for tests
