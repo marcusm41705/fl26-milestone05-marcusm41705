@@ -39,8 +39,18 @@ class BuildWorker{
     void cancel(); //invalidate pending + running work
     void stop(); //Stop and join the worker thread.
     bool is_current(std::size_t generation);
+    bool wait_until_running_4_test(int timeout_ms);
+    bool wait_until_idle_4_test(int timeout_ms);
     private:
     //this function is executed by the worker thread
+    enum class WorkerPhase{
+        Starting,
+        Waiting,
+        Running,
+        Stopped
+    };
+    WorkerPhase phase_{WorkerPhase::Starting};
+    std::condition_variable progress_cv_;
     void worker_loop();
     std::mutex mutex_; //protects data shared between GUI and worker
     std::condition_variable cond_var_; //allow worker to wait without polling

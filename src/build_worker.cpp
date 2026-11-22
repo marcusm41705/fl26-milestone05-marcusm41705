@@ -72,17 +72,22 @@ namespace aiws::gui {
         std::size_t id = 0;
         {
             std::unique_lock<std::mutex> lock(mutex_);
+            phase_ = WorkerPhase::Waiting;
+            progress_cv_.notify_all();
             //Sleeping until  request / shutdown arrives
             cond_var_.wait(lock, [this]{
                 return stopping_ || pending_request_.has_value();
             });
             if(stopping_){
+                phase_ = WorkerPhase::Stopped;
+                progress_cv_.notify_all();
                 return;
             }
             //Taking newest request
             request.emplace(std::move(*pending_request_));
             pending_request_.reset();
             id = gen_;
+            phase_ = WorkerPhase::Starting; //worker has received a request but has not started processing
         }
         BuildResult result;
         result.revision = request->revision;
@@ -92,15 +97,21 @@ namespace aiws::gui {
             //providing the delay and cancellation settings for this build
           const aiws::gui::BuildControl control{
             request->delay_ms, request->fail_4_testing, [this, id](){
-                #ifndef AIWS_FAULT_NO_CANCEL
-                //Milestone M5 deliberate defect
-                //Used to ignore the invalidation of the running build
-                std::lock_guard<std::mutex> lock(mutex_);
-                return stopping_;
-                #else 
-                return !is_current(id);
-                #endif
+               std::lock_guard<std::mutex> lock(mutex_);
+               //Notify tests when processing begin
+               if(phase_ != WorkerPhase::Running){
+                phase_ = WorkerPhase::Running;
+                progress_cv_.notify_all();
+               }
+               #ifdef AIWS_FAULT_NO_CANCEL
+               //Ignore canceled builds
+               return stopping_;
+               #else 
+               //Normal behavior: cancelling outdated builds
+               return stopping_ || id != gen_;
+               #endif
             }
+
           };
             //installing the controls on the worker thread
             aiws::gui::ScopedBuildControl scope(control);
@@ -126,6 +137,20 @@ namespace aiws::gui {
     }
   }
 
+  bool BuildWorker::wait_until_running_4_test(int timeout_ms){
+    std::unique_lock<std::mutex> lock(mutex_);
+    return progress_cv_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this](){
+        return phase_ ==  WorkerPhase::Running;
+
+    });
+  }
+  bool BuildWorker::wait_until_idle_4_test(int timeout_ms){
+    std::unique_lock<std::mutex> lock(mutex_);
+    return progress_cv_.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this](){
+        return phase_ == WorkerPhase::Waiting;
+
+    });
+  }
 
 
 

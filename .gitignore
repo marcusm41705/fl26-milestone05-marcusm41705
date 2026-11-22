@@ -1,5 +1,7 @@
 build/
 build-fault-failure/
+build-no-cancel/
+build-silent/
 *.o
 .DS_Store
 data/
