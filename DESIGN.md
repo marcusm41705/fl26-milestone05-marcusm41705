@@ -34,3 +34,6 @@ Shared data: Only the worker control information and the request handoff data ge
 Fault Switches:
 The AIWS_FAULT_NO_CANCEL fault is located in the cancellation callback that lies within BuildWorker::worker_loop(). The cancel_during_build() test is used to detect any unnecessary continued processing.
 The AIWS_FAULT_SILENT_SHUTDOWN fault is located in BuildWorker::stop(). The idle-shutdown subprocess test is used to detect the missing wakeup and resulting hang. 
+
+AI Use Disclosure:
+ChatGPT was used to create the script and walkthrough for the video. I am currently traveling, so it was used to design the overall structure and flow for the actions taken in the video. 
