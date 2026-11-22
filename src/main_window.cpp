@@ -363,7 +363,7 @@ void MainWindow::CorpusState::reset(MainWindow& window){
     Resettable* components[] = {window.workspace_widget_, window.search_widget_, window.term_inspector_widget_, window.context_widget_};
     for (Resettable* comp : components){
         comp->reset();
-    
+    //
     }
     window.status_label_->setText("Application reset.");
     window.update_action_states();

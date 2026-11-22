@@ -20,52 +20,28 @@ namespace aiws::gui {
     BuildWorker::~BuildWorker(){
         stop();
     }
+
     //Submitting new request without waiting for a build
     std::size_t BuildWorker::submit(BuildRequest request){
+        //R2: Only keep the newest pending request,
+        //advancing the generation also would invalidate the older build
+        // which allows the worker to abandon any outdated processing elements
         std::size_t id;
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            if(stopping_){
+            if(stopping_ ){
                 throw std::runtime_error("Worker is stopping");
             }
             ++gen_;
-            id = gen_;
+
+            id =  gen_;
             pending_request_ = std::move(request);
 
         }
         cond_var_.notify_one();
         return id;
   }
-  //Used to invalidate both running and pending work
-  void BuildWorker::cancel(){
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    ++gen_;
-    pending_request_.reset();
-  }
-  cond_var_.notify_one();
-  }
-  //Used to whether a request is still valid
-  bool BuildWorker::is_current(std::size_t id){
-    std::lock_guard<std::mutex> lock(mutex_);
-    return (!stopping_) && (id == gen_);
-  }
-  void BuildWorker::stop(){
-    {
-    std::lock_guard<std::mutex> lock(mutex_);
-    stopping_ = true;
-    ++gen_;
-    pending_request_.reset();
-     }
-     #ifndef AIWS_FAULT_SILENT_SHUTDOWN
-     // wakes the idle worker normally so it can exit
-     //Worker is awoken even if waiting for work
-     cond_var_.notify_one();
-     #endif
-     if(worker_.joinable()){ //joining the worker before destruction
-        worker_.join();
-     }
-  }
+
   void BuildWorker::worker_loop(){
     while(true){
         std::optional<BuildRequest> request;
@@ -74,7 +50,8 @@ namespace aiws::gui {
             std::unique_lock<std::mutex> lock(mutex_);
             phase_ = WorkerPhase::Waiting;
             progress_cv_.notify_all();
-            //Sleeping until  request / shutdown arrives
+            //R1/R2: The single worker will wait for a new build request
+            //or shutdown signal w/o polling
             cond_var_.wait(lock, [this]{
                 return stopping_ || pending_request_.has_value();
             });
@@ -83,7 +60,8 @@ namespace aiws::gui {
                 progress_cv_.notify_all();
                 return;
             }
-            //Taking newest request
+            //Taking ownership of the newest pending request while holding the mutex so the GUI 
+            //can't modify it simulataneously
             request.emplace(std::move(*pending_request_));
             pending_request_.reset();
             id = gen_;
@@ -95,6 +73,8 @@ namespace aiws::gui {
         try{
             auto core = std::make_unique<ProcessingCore>();
             //providing the delay and cancellation settings for this build
+            //R3: Installing the cancel controls for the current build, a generation mismatch would mean 
+            //reset or workspace change which invalidates the running request
           const aiws::gui::BuildControl control{
             request->delay_ms, request->fail_4_testing, [this, id](){
                std::lock_guard<std::mutex> lock(mutex_);
@@ -136,6 +116,39 @@ namespace aiws::gui {
         QMetaObject::invokeMethod(gui_receiver_, [callback = comp_callback_, result_ptr]() mutable {callback(std::move(*result_ptr));}, Qt::QueuedConnection);
     }
   }
+  void BuildWorker::stop(){
+    {
+    std::lock_guard<std::mutex> lock(mutex_);
+    stopping_ = true;
+    ++gen_;
+    pending_request_.reset();
+     }
+     #ifndef AIWS_FAULT_SILENT_SHUTDOWN
+     // wakes the idle worker normally so it can exit
+     //Worker is awoken even if waiting for work
+     //R4: Wake worker if idle, so it sees the shutdown flag, then terminate it before join() returns
+     cond_var_.notify_one();
+     #endif
+     if(worker_.joinable()){ //joining the worker before destruction
+        worker_.join();
+     }
+  }
+  
+  //Used to invalidate both running and pending work
+  void BuildWorker::cancel(){
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ++gen_;
+    pending_request_.reset();
+  }
+  cond_var_.notify_one();
+  }
+  //Used to whether a request is still valid
+  bool BuildWorker::is_current(std::size_t id){
+    std::lock_guard<std::mutex> lock(mutex_);
+    return (!stopping_) && (id == gen_);
+  }
+  
 
   bool BuildWorker::wait_until_running_4_test(int timeout_ms){
     std::unique_lock<std::mutex> lock(mutex_);
